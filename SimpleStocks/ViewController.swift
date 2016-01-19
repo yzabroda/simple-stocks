@@ -14,7 +14,8 @@ class ViewController: UIViewController, SimpleStockViewDataSource {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+
+        simpleStockView.dataSource = self
     }
 
     override func didReceiveMemoryWarning() {
@@ -63,29 +64,41 @@ class ViewController: UIViewController, SimpleStockViewDataSource {
     }
 
 
-    func graphViewDailyTradeInfos(graphView: SimpleStockView) {
-        
+    func graphViewDailyTradeInfos(graphView: SimpleStockView) -> [DailyTradeInfo] {
+        return DailyTradeInfoSource.tradeInfoArray
     }
 
 
-    func graphViewMaxClosingPrice(graphView: SimpleStockView) {
-        
+    func graphViewMaxClosingPrice(graphView: SimpleStockView) -> CGFloat {
+        return DailyTradeInfoSource.tradeInfoArray.reduce(CGFloat.min) {
+            max($0, CGFloat($1.closingPrice.doubleValue))
+        }
     }
 
 
-    func graphViewMinClosingPrice(graphView: SimpleStockView) {
-        
+    func graphViewMinClosingPrice(graphView: SimpleStockView) -> CGFloat {
+        return DailyTradeInfoSource.tradeInfoArray.reduce(CGFloat.max) {
+            min($0, CGFloat($1.closingPrice.doubleValue))
+        }
     }
 
 
-    func graphViewMaxTradingVolume(graphView: SimpleStockView) {
-        
+    func graphViewMaxTradingVolume(graphView: SimpleStockView) -> CGFloat {
+        return DailyTradeInfoSource.tradeInfoArray.reduce(CGFloat.min) {
+            max($0, CGFloat($1.tradingVolume.doubleValue))
+        }
     }
 
 
-    
-    func graphViewMinTradingVolume(graphView: SimpleStockView) {
-        
+
+    func graphViewMinTradingVolume(graphView: SimpleStockView) -> CGFloat {
+        return DailyTradeInfoSource.tradeInfoArray.reduce(CGFloat.max) {
+            min($0, CGFloat($1.tradingVolume.doubleValue))
+        }
     }
+
+
+
+    @IBOutlet weak var simpleStockView: SimpleStockView!
 }
 

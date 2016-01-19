@@ -13,7 +13,52 @@ import UIKit
 
 class DailyTradeInfoSource {
 
-    static var rawDataArray = [
+    static var tradeInfoArray: [DailyTradeInfo] = {
+        let parsingLocale = NSLocale(localeIdentifier: "en_US_POSIX")
+        let dateFormatter = NSDateFormatter()
+        dateFormatter.locale = parsingLocale
+        dateFormatter.dateFormat = "MMM d, yyyy"
+        
+        let priceFormatter = NSNumberFormatter()
+        priceFormatter.locale = parsingLocale
+        priceFormatter.numberStyle = .DecimalStyle
+        
+        let volumeFormatter = NSNumberFormatter()
+        volumeFormatter.locale = parsingLocale
+        volumeFormatter.numberStyle = .DecimalStyle
+        volumeFormatter.positiveFormat = "###,###,###"
+        
+        var stockPrices = [DailyTradeInfo]()
+        let count = rawDataArray.count
+        
+        for i in 0..<count {
+            guard let tradingDate = dateFormatter.dateFromString(rawDataArray[i]),
+                openingPrice = priceFormatter.numberFromString(rawDataArray[i + 1]),
+                highPrice = priceFormatter.numberFromString(rawDataArray[i + 2]),
+                lowPrice = priceFormatter.numberFromString(rawDataArray[i + 3]),
+                closingPrice = priceFormatter.numberFromString(rawDataArray[i + 4]),
+                tradingVolume = volumeFormatter.numberFromString(rawDataArray[i + 5]) else {
+                    continue
+            }
+            
+            var stock = DailyTradeInfo(
+                tradingDate: tradingDate,
+                openingPrice: openingPrice,
+                highPrice: highPrice,
+                lowPrice: lowPrice,
+                closingPrice: closingPrice,
+                tradingVolume: tradingVolume
+            )
+            
+            stockPrices.append(stock)
+        }
+        
+        return stockPrices.sort { $0 < $1 }
+    }()
+
+
+
+    private static var rawDataArray = [
         //Date           Open       High       Low        Close      Volume        Adj Close
         "May 26, 2011", "335.97", "336.89", "334.43", "335.00", "7,948,600", "335.00",
         "May 25, 2011", "333.43", "338.56", "332.85", "336.78", "10,500,200", "336.78",
@@ -78,49 +123,6 @@ class DailyTradeInfoSource {
         "Mar 2, 2011", "349.96", "354.35", "348.40", "352.12", "21,521,100", "352.12",
         "Mar 1, 2011", "355.47", "355.72", "347.68", "349.31", "16,290,600", "349.31",
         "Feb 28, 2011", "351.24", "355.05", "351.12", "353.21", "14,395,500", "353.21",
-        "Feb 25, 2011", "345.26", "348.43", "344.80", "348.16", "13,572,100", "348.16"]
-
-
-    static var tradeInfoArray: [DailyTradeInfo] = {
-        let parsingLocale = NSLocale(localeIdentifier: "en_US_POSIX")
-        let dateFormatter = NSDateFormatter()
-        dateFormatter.locale = parsingLocale
-        dateFormatter.dateFormat = "MMM d, yyyy"
-
-        let priceFormatter = NSNumberFormatter()
-        priceFormatter.locale = parsingLocale
-        priceFormatter.numberStyle = .DecimalStyle
-
-        let volumeFormatter = NSNumberFormatter()
-        volumeFormatter.locale = parsingLocale
-        volumeFormatter.numberStyle = .DecimalStyle
-        volumeFormatter.positiveFormat = "###,###,###"
-
-        var stockPrices = [DailyTradeInfo]()
-        let count = rawDataArray.count
-
-        for i in 0..<count {
-            guard let tradingDate = dateFormatter.dateFromString(rawDataArray[i]),
-            openingPrice = priceFormatter.numberFromString(rawDataArray[i + 1]),
-            highPrice = priceFormatter.numberFromString(rawDataArray[i + 2]),
-            lowPrice = priceFormatter.numberFromString(rawDataArray[i + 3]),
-            closingPrice = priceFormatter.numberFromString(rawDataArray[i + 4]),
-                tradingVolume = volumeFormatter.numberFromString(rawDataArray[i + 5]) else {
-                    continue
-            }
-
-            var stock = DailyTradeInfo(
-                tradingDate: tradingDate,
-                openingPrice: openingPrice,
-                highPrice: highPrice,
-                lowPrice: lowPrice,
-                closingPrice: closingPrice,
-                tradingVolume: tradingVolume
-            )
-
-            stockPrices.append(stock)
-        }
-
-        return stockPrices.sort { $0 < $1 }
-    }()
+        "Feb 25, 2011", "345.26", "348.43", "344.80", "348.16", "13,572,100", "348.16"
+    ]
 }
