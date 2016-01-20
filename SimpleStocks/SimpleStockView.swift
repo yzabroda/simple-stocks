@@ -34,6 +34,10 @@ class SimpleStockView: UIView {
         let dataRect = closingDataRect()
         let volumeRect = volumeDataRect()
 
+        // Clip to the rounded rectangle.
+        let path = UIBezierPath(roundedRect: bounds, byRoundingCorners: .AllCorners, cornerRadii: CGSize(width: 16.0, height: 16.0))
+        path.addClip()
+
         // Step 1: draw the backgroud gradient.
         drawBackgroundGradient()
 
@@ -46,6 +50,15 @@ class SimpleStockView: UIView {
         // Step 4: draw the lines to emphasize the data.
         drawPatternUnderClosingData(dataRect, clip: true)
         drawLinePatternUnderClosingData(dataRect, clip: true)
+
+        // Step 5: draw the volume data.
+        drawVolumeDataInRect(volumeRect)
+
+        // Step 6: draw the closing data.
+        drawClosingDataInRect(dataRect)
+
+        // Step 7: draw the month names under the graph.
+        drawMonthNamesTextUnderDataRect(dataRect, volumeGraphHeight: volumeGraphHeight())
     }
 
 
@@ -137,8 +150,17 @@ class SimpleStockView: UIView {
 
 
     private func priceLabelWidth() -> CGFloat {
-        // NYI
-        return CGFloat(128)
+        let minimum: CGFloat = 32.0
+        let maximum: CGFloat = 54.0
+
+        let size = (numberFormatter.stringFromNumber(dataSource!.graphViewMaxClosingPrice(self))! as NSString).sizeWithAttributes([NSFontAttributeName: UIFont.systemFontOfSize(14)])
+        var width = minimum
+
+        if (size.width < maximum) && (size.width > minimum) {
+            width = size.width
+        }
+
+        return width
     }
 
 
@@ -221,15 +243,16 @@ class SimpleStockView: UIView {
         }
 
         let path = UIBezierPath()
-        path.lineWidth = 1.0
+        let lineWidth: CGFloat = 1.0
+        path.lineWidth = lineWidth
 
         // !!!
         // Because the line with is odd, offset the horizontal lines by 0.5 points.
         path.moveToPoint(CGPoint(x: 0.0, y: rint(CGRectGetMinY(rect)) + 0.5))
         path.addLineToPoint(CGPoint(x: CGRectGetMaxX(rect), y: rint(CGRectGetMinY(rect)) + 0.5))
 
-        let alpha: CGFloat = 0.8
-        let startColor = UIColor(white: 1.0, alpha: alpha)
+        var alpha: CGFloat = 0.8
+        var startColor = UIColor(white: 1.0, alpha: alpha)
         startColor.setStroke()
         let step: CGFloat = 4.0
         let stepCount = CGRectGetHeight(rect) / step
@@ -238,7 +261,22 @@ class SimpleStockView: UIView {
 
         CGContextSaveGState(context)
 
-        let translation = CGRectGetMinY(rect)
+        var translation = CGRectGetMinY(rect)
+
+        while (translation < CGRectGetMaxY(rect)) {
+            path.stroke()
+            CGContextTranslateCTM(context, 0.0, lineWidth * step)
+            translation += lineWidth * step
+            alpha -= alphaStep
+            startColor = startColor.colorWithAlphaComponent(alpha)
+            startColor.setStroke()
+        }
+
+        CGContextRestoreGState(context)
+
+        if clip {
+            CGContextRestoreGState(context)
+        }
     }
 
 
@@ -293,6 +331,94 @@ class SimpleStockView: UIView {
             CGContextRestoreGState(context)
         }
     }
+
+
+
+    private func drawVolumeDataInRect(volumeGraphRect: CGRect) {
+        let maxVolume = dataSource!.graphViewMaxTradingVolume(self)
+        let minVolume = dataSource!.graphViewMinTradingVolume(self)
+        let verticalScale = CGRectGetHeight(volumeGraphRect) / (maxVolume - minVolume)
+
+        let context = UIGraphicsGetCurrentContext()
+
+        CGContextSaveGState(context)
+
+        let tradingDayLineSpacing = rint(CGRectGetWidth(volumeGraphRect) / CGFloat(dataSource!.graphViewDailyTradeInfoCount(self)))
+        var counter: CGFloat = 0.0
+        let maxY = CGRectGetMaxY(volumeGraphRect)
+        UIColor.whiteColor().setStroke()
+
+        let dailyTradeInfos = dataSource!.graphViewDailyTradeInfos(self)
+
+        for dailyTradeInfo in dailyTradeInfos {
+            let path = UIBezierPath()
+            path.lineWidth = 2.0
+            let tradingVolume = CGFloat(dailyTradeInfo.tradingVolume.doubleValue)
+
+            var pt = CGPoint(x: rint(counter * tradingDayLineSpacing), y: maxY)
+            path.moveToPoint(pt)
+
+            pt = CGPoint(
+                x: rint(counter * tradingDayLineSpacing),
+                y: maxY - (tradingVolume - minVolume) * verticalScale
+            )
+            path.addLineToPoint(pt)
+    
+            path.stroke()
+            counter += 1.0
+        }
+
+        CGContextRestoreGState(context)
+    }
+
+
+    private func drawClosingDataInRect(rect: CGRect) {
+        UIColor.whiteColor().setStroke()
+        let path = pathFromDataInRect(rect)
+        path.stroke()
+    }
+
+
+    private func drawMonthNamesTextUnderDataRect(dataRect: CGRect, volumeGraphHeight: CGFloat) {
+        let dataCount = dataSource!.graphViewDailyTradeInfoCount(self)
+        let sortedMonths = dataSource!.graphViewSortedMonths(self)
+
+        let calendar = NSCalendar.currentCalendar()
+
+        let dateFormatter = NSDateFormatter()
+        let format = NSDateFormatter.dateFormatFromTemplate("MMMM", options: 0, locale: NSLocale.currentLocale())
+        dateFormatter.dateFormat = format
+
+//        UIColor.whiteColor().setFill()
+        let font = UIFont.boldSystemFontOfSize(16)
+
+        let context = UIGraphicsGetCurrentContext()
+
+        CGContextSaveGState(context)
+        let shadowHeight: CGFloat = 2.0
+        CGContextSetShadowWithColor(context, CGSize(width: 1.0, height: -shadowHeight) , 0.0, UIColor.darkGrayColor().CGColor)
+
+        let tradingDayLineSpacing = rint(CGRectGetWidth(dataRect) / CGFloat(dataCount))
+
+        for i in 0..<(sortedMonths.count - 1) {
+            let linePosition = tradingDayLineSpacing * CGFloat(dataSource!.graphView(self, tradeCountForMonth: sortedMonths[i]))
+            CGContextTranslateCTM(context, linePosition, 0.0)
+            let date = calendar.dateFromComponents(sortedMonths[i + 1])
+            let monthName = dateFormatter.stringFromDate(date!) as NSString
+            let monthSize = monthName.sizeWithAttributes([NSFontAttributeName: font])
+            let monthRect = CGRect(
+                x: 0.0,
+                y: CGRectGetMaxY(dataRect) + volumeGraphHeight + shadowHeight,
+                width: monthSize.width,
+                height: monthSize.height
+            )
+
+            monthName.drawInRect(monthRect, withAttributes: [NSFontAttributeName: font, NSForegroundColorAttributeName: UIColor.whiteColor()])
+        }
+
+        CGContextRestoreGState(context)
+    }
+
 
 
     private func topClipPathFromDataInRect(rect: CGRect) -> UIBezierPath {
@@ -398,6 +524,11 @@ class SimpleStockView: UIView {
         let bg = CGGradientCreateWithColorComponents(colorSpace, colors, colorStops, 4)
 
         return bg!
+    }()
+
+
+    lazy var numberFormatter: NSNumberFormatter = {
+        return NSNumberFormatter()
     }()
 
 
